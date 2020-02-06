@@ -936,7 +936,7 @@ class ClassFileToSourceStubConverter(val kaptContext: KaptContextForStubGenerati
             return list.prepend(annotationTree)
         }
 
-        var annotations = visibleAnnotations?.fold(JavacList.nil<JCAnnotation>(), ::convertAndAdd) ?: JavacList.nil()
+        var annotations = visibleAnnotations?.filter{ it.desc != "kotlin.Metadata"}?.fold(JavacList.nil<JCAnnotation>(), ::convertAndAdd) ?: JavacList.nil()
         annotations = invisibleAnnotations?.fold(annotations, ::convertAndAdd) ?: annotations
 
         val flags = when (kind) {
