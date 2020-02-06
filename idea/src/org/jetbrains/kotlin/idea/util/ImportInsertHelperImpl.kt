@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.idea.caches.resolve.getResolutionFacade
 import org.jetbrains.kotlin.idea.core.formatter.KotlinCodeStyleSettings
 import org.jetbrains.kotlin.idea.core.targetDescriptors
 import org.jetbrains.kotlin.idea.imports.ImportPathComparator
+import org.jetbrains.kotlin.idea.imports.canBeReferencedViaImport
 import org.jetbrains.kotlin.idea.imports.getImportableTargets
 import org.jetbrains.kotlin.idea.imports.importableFqName
 import org.jetbrains.kotlin.idea.project.TargetPlatformDetector
@@ -25,16 +26,14 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.ImportPath
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
 import org.jetbrains.kotlin.resolve.descriptorUtil.getImportableDescriptor
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
 import org.jetbrains.kotlin.resolve.scopes.DescriptorKindFilter
 import org.jetbrains.kotlin.resolve.scopes.LexicalScope
 import org.jetbrains.kotlin.resolve.scopes.MemberScope
 import org.jetbrains.kotlin.resolve.scopes.getDescriptorsFiltered
-import org.jetbrains.kotlin.resolve.scopes.utils.findClassifier
-import org.jetbrains.kotlin.resolve.scopes.utils.findFunction
-import org.jetbrains.kotlin.resolve.scopes.utils.findPackage
-import org.jetbrains.kotlin.resolve.scopes.utils.findVariable
+import org.jetbrains.kotlin.resolve.scopes.utils.*
 import org.jetbrains.kotlin.scripting.definitions.ScriptDependenciesProvider
 import org.jetbrains.kotlin.utils.addIfNotNull
 import java.util.*
@@ -296,7 +295,7 @@ class ImportInsertHelperImpl(private val project: Project) : ImportInsertHelper(
         }
 
         private fun addExplicitImport(target: DeclarationDescriptor): ImportDescriptorResult {
-            if (target is ClassDescriptor || target is PackageViewDescriptor) {
+            val targetFqName: FqName? = if (target is ClassDescriptor || target is PackageViewDescriptor) {
                 val topLevelScope = resolutionFacade.getFileResolutionScope(file)
                 val name = target.name
 
@@ -306,9 +305,14 @@ class ImportInsertHelperImpl(private val project: Project) : ImportInsertHelper(
                 if (classifier != null && detectNeededImports(listOf(classifier)).isNotEmpty()) {
                     return ImportDescriptorResult.FAIL
                 }
-            }
+                if (classifier is TypeAliasDescriptor) {
+                    val declarationDescriptor = classifier?.typeConstructor?.declarationDescriptor
+                    if (declarationDescriptor?.canBeReferencedViaImport() == true) return ImportDescriptorResult.ALREADY_IMPORTED
+                    declarationDescriptor?.fqNameOrNull()
+                } else null
+            } else null
 
-            addImport(target.importableFqName!!, false)
+            addImport(targetFqName ?: target.importableFqName!!, false)
             return ImportDescriptorResult.IMPORT_ADDED
         }
 
