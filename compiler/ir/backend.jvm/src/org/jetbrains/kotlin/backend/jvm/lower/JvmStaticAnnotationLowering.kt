@@ -34,6 +34,7 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.annotations.JVM_STATIC_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DescriptorWithContainerSource
 
@@ -76,6 +77,10 @@ private class CompanionObjectJvmStaticLowering(val context: JvmBackendContext) :
                 val proxy = createProxy(
                     accessor, irClass, companion, newName, jvmStaticFunction.visibility, isSynthetic = false
                 )
+                // Drop @JvmName annotation from accessor, otherwise it would conflict with the function itself.
+                accessor.annotations.removeIf {
+                    it.symbol.owner.parentAsClass.fqNameWhenAvailable == DescriptorUtils.JVM_NAME
+                }
                 irClass.addMember(proxy)
             } else {
                 val proxy = createProxy(
